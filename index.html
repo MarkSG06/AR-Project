@@ -464,7 +464,7 @@
     <!-- HUD -->
     <div id="augma-hud">
         <div class="hud-header">
-            <div class="hud-status" id="system-status">v0.05: STANDBY</div>
+            <div class="hud-status" id="system-status">v0.06: STANDBY</div>
             <div class="brujula-container">
                 <div class="brujula" id="brujula">
                     <span class="brujula-p n">N</span>
@@ -703,7 +703,7 @@
 
             // Check if Google Maps is loaded
             if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
-                statusEl.innerText = 'v0.05: MAPS ERR';
+                statusEl.innerText = 'v0.06: MAPS ERR';
                 statusEl.classList.add('error');
                 apiWarning.style.display = 'block';
                 apiWarning.innerText = 'Google Maps API failed to load. Replace YOUR_API_KEY_HERE.';
@@ -732,7 +732,7 @@
                     });
 
                     directionsRenderer.setMap(map);
-                    statusEl.innerText = 'v0.05: ONLINE';
+                    statusEl.innerText = 'v0.06: ONLINE';
                 } catch (e) {
                     apiWarning.style.display = 'block';
                     apiWarning.innerText = 'Invalid API Key or Auth Error.';
@@ -748,7 +748,7 @@
                 const destination = destInput.value;
                 if (!destination) return;
 
-                statusEl.innerText = 'v0.05: LOCATING...';
+                statusEl.innerText = 'v0.06: LOCATING...';
 
                 if (navigator.geolocation) {
                     navigator.geolocation.getCurrentPosition(
@@ -761,20 +761,20 @@
                             calculateRoute(origin, destination);
                         },
                         (error) => {
-                            statusEl.innerText = 'v0.05: GPS ERROR';
+                            statusEl.innerText = 'v0.06: GPS ERROR';
                             statusEl.classList.add('error');
                             console.error(error);
                         },
                         { enableHighAccuracy: true }
                     );
                 } else {
-                    statusEl.innerText = 'v0.05: GPS NOT SUPPORTED';
+                    statusEl.innerText = 'v0.06: GPS NOT SUPPORTED';
                     statusEl.classList.add('error');
                 }
             });
 
             function calculateRoute(origin, destination) {
-                statusEl.innerText = 'v0.05: ROUTING...';
+                statusEl.innerText = 'v0.06: ROUTING...';
 
                 directionsService.route(
                     {
@@ -802,7 +802,7 @@
                                 map: map
                             });
 
-                            statusEl.innerText = 'v0.05: NAVIGATING';
+                            statusEl.innerText = 'v0.06: NAVIGATING';
                             overlay.style.opacity = '0';
                             setTimeout(() => overlay.style.display = 'none', 300);
 
@@ -810,67 +810,93 @@
                             currentRouteSteps = route.steps;
                             currentStepIndex = 0;
 
-                            // ---- DIBUJAR LÍNEA (MIGAS DE PAN AR) EN EL MUNDO REAL ----
-                            const arScene = document.querySelector('a-scene');
-                            // Borrar ruta AR física anterior si la hubiera
-                            document.querySelectorAll('.ar-path-node').forEach(el => el.remove());
-
-                            // Transformar los puntos en una "LÍNEA VIRTUAL" de luz sólida superpuesta
-                            // Generamos esferas de bajo coste poligonal muy juntas para formar un "tubo holográfico" suave y continuo
-                            // que no se parte ni se deforma por culpa de los ejes de rotación cuando la cámara escanea la calle.
-                            let renderedMeters = 0;
-                            const maxDistRenderer = 800; // Pintar la línea sólo hasta 800 metros de distancia
-
-                            for (let i = 0; i < path.length - 1; i++) {
-                                const p1 = path[i];
-                                const p2 = path[i + 1];
-
-                                const dist = google.maps.geometry.spherical.computeDistanceBetween(p1, p2);
-                                if (dist < 0.5) continue;
-
-                                const isMobileAR = window.innerWidth < 768;
-                                // Colocamos un marcador flotante gigante cada 10 metros para no saturar
-                                const spacing = 15.0;
-                                const numMarkers = Math.max(1, Math.floor(dist / spacing));
-
-                                for (let j = 0; j <= numMarkers; j++) {
-                                    const fraction = j / numMarkers;
-                                    const point = google.maps.geometry.spherical.interpolate(p1, p2, fraction);
-
-                                    const node = document.createElement('a-entity');
-                                    node.setAttribute('gps-entity-place', `latitude: ${point.lat()}; longitude: ${point.lng()};`);
-
-                                    // ¡Adiós a las esferas estorbosas! Usamos un "Diamante Holográfico" (Cono invertido de 4 caras estilo videojuego real)
-                                    const radius = isMobileAR ? 2.5 : 1.5;
-                                    const height = isMobileAR ? 4.0 : 3.0;
-                                    node.setAttribute('geometry', `primitive: cone; radiusBottom: 0; radiusTop: ${radius}; height: ${height}; segmentsRadial: 4`);
-
-                                    node.setAttribute('material', `color: #00f3ff; opacity: 0.85; transparent: true; emissive: #00f3ff; emissiveIntensity: 0.9; side: double; flatShading: true`);
-
-                                    // SALVAVIDAS: ¡Flotando a 4 metros de altura (position Y = 4.0)! 
-                                    // Así, aunque camines literalmente debajo, será como un techo de luz y no te bloqueará NUNCA la cámara.
-                                    const yPos = isMobileAR ? 4.0 : 3.5;
-                                    node.setAttribute('position', `0 ${yPos} 0`);
-
-                                    // Animación de rotación constante hiper-futurista
-                                    node.setAttribute('animation', 'property: rotation; to: 0 360 0; loop: true; dur: 4000; easing: linear');
-
-                                    node.classList.add('ar-path-node');
-                                    arScene.appendChild(node);
-                                }
-
-                                renderedMeters += dist;
-                                if (renderedMeters > maxDistRenderer) break; // Límite de seguridad de carga WebGL
-                            }
-
                             startTracking(route.end_location);
+                            // Lanzar el dibujado AR 2D (más fiable en móvil que gps-entity-place)
+                            startARPathDraw();
                         } else {
-                            statusEl.innerText = 'v0.05: ROUTE ERR';
+                            statusEl.innerText = 'v0.06: ROUTE ERR';
                             statusEl.classList.add('error');
                         }
                     }
                 );
             }
+
+            // ---- GUIA AR 2D (Canvas) ---- Método fiable en móvil --------------------------------
+            // En lugar de luchar contra los bugs de coordenadas 3D de AR.js en móvil,
+            // dibujamos directamente en el canvas 2D la dirección calculada con GPS + brújula.
+            let arPathActive = false;
+            let nextWaypointLatLng = null;
+            let userLatLng = null;
+
+            function startARPathDraw() {
+                arPathActive = true;
+                drawARPathLoop();
+            }
+
+            function drawARPathLoop() {
+                if (!arPathActive) return;
+                drawARPath();
+                requestAnimationFrame(drawARPathLoop);
+            }
+
+            function drawARPath() {
+                if (!nextWaypointLatLng || !userLatLng) return;
+
+                const W = canvasElement.width || window.innerWidth;
+                const H = canvasElement.height || window.innerHeight;
+                const cx = W / 2;
+                const cy = H / 2;
+
+                // Calcular bearing (0=N, 90=E, 180=S, 270=W) desde nosotros al siguiente punto
+                const targetBearing = google.maps.geometry.spherical.computeHeading(userLatLng, nextWaypointLatLng);
+
+                // Restar el heading del teléfono para saber hacia dónde hay que apuntar en la pantalla
+                const relativeBearing = targetBearing - lastHeading;
+                const angleRad = (relativeBearing * Math.PI) / 180;
+
+                // Distancia al siguiente waypoint
+                const distM = google.maps.geometry.spherical.computeDistanceBetween(userLatLng, nextWaypointLatLng);
+
+                // El extremo de la flecha: a 35% de la altura de la pantalla desde el centro
+                const arrowLen = Math.min(W, H) * 0.32;
+                const tipX = cx + Math.sin(angleRad) * arrowLen;
+                const tipY = cy - Math.cos(angleRad) * arrowLen;
+
+                const ctx = canvasCtx;
+
+                // Trazo de guia desde centro a punta
+                ctx.save();
+                ctx.strokeStyle = 'rgba(0, 243, 255, 0.7)';
+                ctx.lineWidth = 6;
+                ctx.shadowColor = '#00f3ff';
+                ctx.shadowBlur = 15;
+                ctx.setLineDash([18, 10]);
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(tipX, tipY);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Flecha grande en la punta
+                const headLen = 36;
+                const headAngle = Math.PI / 6;
+                ctx.lineWidth = 5;
+                ctx.beginPath();
+                ctx.moveTo(tipX, tipY);
+                ctx.lineTo(tipX - headLen * Math.sin(angleRad - headAngle), tipY + headLen * Math.cos(angleRad - headAngle));
+                ctx.moveTo(tipX, tipY);
+                ctx.lineTo(tipX - headLen * Math.sin(angleRad + headAngle), tipY + headLen * Math.cos(angleRad + headAngle));
+                ctx.stroke();
+
+                // Etiqueta de distancia junto a la punta
+                ctx.font = 'bold 22px monospace';
+                ctx.fillStyle = '#00f3ff';
+                ctx.shadowBlur = 10;
+                ctx.fillText(`${Math.round(distM)} m`, tipX + 12, tipY - 8);
+
+                ctx.restore();
+            }
+            // -----------------------------------------------------------------------------------------
 
             function startTracking(destinationLatLng) {
                 if (currentWatchId) navigator.geolocation.clearWatch(currentWatchId);
@@ -889,14 +915,17 @@
             }
 
             function updateNavigation(coords) {
-                const currentLoc = new google.maps.LatLng(coords.latitude, coords.longitude);
+                userLatLng = new google.maps.LatLng(coords.latitude, coords.longitude);
 
                 // Centrar dinámicamente el mapa pseudo-3D como un GPS de coche apuntando al coche
-                if (map) map.panTo(currentLoc);
+                if (map) map.panTo(userLatLng);
 
                 if (currentStepIndex < currentRouteSteps.length) {
                     const step = currentRouteSteps[currentStepIndex];
-                    const distToNextStep = google.maps.geometry.spherical.computeDistanceBetween(currentLoc, step.end_location);
+                    // Apuntar la flecha AR al final del paso actual
+                    nextWaypointLatLng = step.end_location;
+
+                    const distToNextStep = google.maps.geometry.spherical.computeDistanceBetween(userLatLng, step.end_location);
 
                     // Simple logic to advance steps
                     if (distToNextStep < 10) {
@@ -929,7 +958,7 @@
                         uiAction.innerText = "DESTIN REA.";
                         arText.setAttribute('text', 'value: DESTINATION REACHED;');
                         arArrow.setAttribute('visible', 'false');
-                        statusEl.innerText = 'v0.05: ARRIVED';
+                        statusEl.innerText = 'v0.06: ARRIVED';
                     }
                 }
             }
