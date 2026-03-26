@@ -464,7 +464,7 @@
     <!-- HUD -->
     <div id="augma-hud">
         <div class="hud-header">
-            <div class="hud-status" id="system-status">v0.03: STANDBY</div>
+            <div class="hud-status" id="system-status">v0.04: STANDBY</div>
             <div class="brujula-container">
                 <div class="brujula" id="brujula">
                     <span class="brujula-p n">N</span>
@@ -703,7 +703,7 @@
 
             // Check if Google Maps is loaded
             if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
-                statusEl.innerText = 'SYS: MAPS ERR';
+                statusEl.innerText = 'v0.04: MAPS ERR';
                 statusEl.classList.add('error');
                 apiWarning.style.display = 'block';
                 apiWarning.innerText = 'Google Maps API failed to load. Replace YOUR_API_KEY_HERE.';
@@ -732,7 +732,7 @@
                     });
 
                     directionsRenderer.setMap(map);
-                    statusEl.innerText = 'SYS: ONLINE';
+                    statusEl.innerText = 'v0.04: ONLINE';
                 } catch (e) {
                     apiWarning.style.display = 'block';
                     apiWarning.innerText = 'Invalid API Key or Auth Error.';
@@ -748,7 +748,7 @@
                 const destination = destInput.value;
                 if (!destination) return;
 
-                statusEl.innerText = 'SYS: LOCATING...';
+                statusEl.innerText = 'v0.04: LOCATING...';
 
                 if (navigator.geolocation) {
                     navigator.geolocation.getCurrentPosition(
@@ -761,20 +761,20 @@
                             calculateRoute(origin, destination);
                         },
                         (error) => {
-                            statusEl.innerText = 'SYS: GPS ERROR';
+                            statusEl.innerText = 'v0.04: GPS ERROR';
                             statusEl.classList.add('error');
                             console.error(error);
                         },
                         { enableHighAccuracy: true }
                     );
                 } else {
-                    statusEl.innerText = 'SYS: GPS NOT SUPPORTED';
+                    statusEl.innerText = 'v0.04: GPS NOT SUPPORTED';
                     statusEl.classList.add('error');
                 }
             });
 
             function calculateRoute(origin, destination) {
-                statusEl.innerText = 'SYS: ROUTING...';
+                statusEl.innerText = 'v0.04: ROUTING...';
 
                 directionsService.route(
                     {
@@ -802,7 +802,7 @@
                                 map: map
                             });
 
-                            statusEl.innerText = 'SYS: NAVIGATING';
+                            statusEl.innerText = 'v0.04: NAVIGATING';
                             overlay.style.opacity = '0';
                             setTimeout(() => overlay.style.display = 'none', 300);
 
@@ -828,8 +828,10 @@
                                 const dist = google.maps.geometry.spherical.computeDistanceBetween(p1, p2);
                                 if (dist < 0.5) continue;
 
-                                // Colocar esferas conectadas cada 4 metros (haciéndolas gigantescas)
-                                const numSpheres = Math.max(1, Math.floor(dist / 4.0));
+                                const isMobileAR = window.innerWidth < 768;
+                                // En móvil espaciamos más las bolas (cada 8m) porque las haremos colosales
+                                const spacing = isMobileAR ? 8.0 : 4.0;
+                                const numSpheres = Math.max(1, Math.floor(dist / spacing));
 
                                 for (let j = 0; j <= numSpheres; j++) {
                                     const fraction = j / numSpheres;
@@ -838,14 +840,17 @@
                                     const node = document.createElement('a-entity');
                                     node.setAttribute('gps-entity-place', `latitude: ${point.lat()}; longitude: ${point.lng()};`);
 
-                                    // Esfera AR GIGANTE de casi 7 metros de diámetro (radius: 3.5) para que no parezca un "pixel" en la lejanía real
-                                    node.setAttribute('geometry', 'primitive: sphere; radius: 3.5; segments-width: 8; segments-height: 8');
+                                    // Radio de 10 metros en móvil (¡20m de diámetro!) para que se vean sí o sí
+                                    const radius = isMobileAR ? 10.0 : 3.5;
+                                    node.setAttribute('geometry', `primitive: sphere; radius: ${radius}; segments-width: 8; segments-height: 8`);
 
-                                    // Al ser muy grande, le bajamos la solidez (opacity: 0.4) para que sea un aura fantasma no cegadora
-                                    node.setAttribute('material', 'color: #00f3ff; opacity: 0.4; transparent: true; emissive: #00f3ff; emissiveIntensity: 0.8; side: double');
+                                    // Opacidad más baja en móvil (0.25) para que no te cieguen por ser tan enormes
+                                    const opacity = isMobileAR ? 0.25 : 0.4;
+                                    node.setAttribute('material', `color: #00f3ff; opacity: ${opacity}; transparent: true; emissive: #00f3ff; emissiveIntensity: 0.8; side: double`);
 
-                                    // Flotando a -1 metro (a media altura, de las piernas a los pies para evitar hundirse bajo tierra físicamente)
-                                    node.setAttribute('position', '0 -1.0 0');
+                                    // En móvil las levantamos a la altura de los ojos (0) para que dominen el centro de la pantalla
+                                    const yPos = isMobileAR ? 0 : -1.0;
+                                    node.setAttribute('position', `0 ${yPos} 0`);
 
                                     node.classList.add('ar-path-node');
                                     arScene.appendChild(node);
@@ -857,7 +862,7 @@
 
                             startTracking(route.end_location);
                         } else {
-                            statusEl.innerText = 'SYS: ROUTE ERR';
+                            statusEl.innerText = 'v0.04: ROUTE ERR';
                             statusEl.classList.add('error');
                         }
                     }
@@ -921,7 +926,7 @@
                         uiAction.innerText = "DESTIN REA.";
                         arText.setAttribute('text', 'value: DESTINATION REACHED;');
                         arArrow.setAttribute('visible', 'false');
-                        statusEl.innerText = 'SYS: ARRIVED';
+                        statusEl.innerText = 'v0.04: ARRIVED';
                     }
                 }
             }
