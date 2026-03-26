@@ -350,8 +350,8 @@
 
             .map-panel {
                 width: 100%;
-                height: 200px;
-                flex: 1; /* Que ocupe el resto del fondo */
+                height: 160px; /* Forzamos tamaño miniatura fijo para no ahogar la pantalla AR */
+                flex: none; /* Eliminamos el estirado automático */
             }
 
             .info-panel {
@@ -801,8 +801,8 @@
                                 const dist = google.maps.geometry.spherical.computeDistanceBetween(p1, p2);
                                 if (dist < 0.5) continue;
                                 
-                                // Calculamos colocar una esfera de luz cada 1.2 metros.
-                                const numSpheres = Math.max(1, Math.floor(dist / 1.2));
+                                // Colocar esferas conectadas cada 0.8 metros
+                                const numSpheres = Math.max(1, Math.floor(dist / 0.8));
                                 
                                 for(let j = 0; j <= numSpheres; j++) {
                                     const fraction = j / numSpheres;
@@ -811,12 +811,14 @@
                                     const node = document.createElement('a-entity');
                                     node.setAttribute('gps-entity-place', `latitude: ${point.lat()}; longitude: ${point.lng()};`);
                                     
-                                    // Esfera "low-poly" (8x8 caras) pero solapada, formando un único río de luz sólido de 1.6m de grosor.
-                                    node.setAttribute('geometry', 'primitive: sphere; radius: 0.8; segmentsWidth: 8; segmentsHeight: 8');
-                                    node.setAttribute('material', 'color: #00f3ff; opacity: 0.45; transparent: true; emissive: #00f3ff; emissiveIntensity: 0.5');
+                                    // Esfera de 1m diámetro optimizada
+                                    node.setAttribute('geometry', 'primitive: sphere; radius: 0.5; segments-width: 8; segments-height: 8');
                                     
-                                    // Flotando pegada al suelo
-                                    node.setAttribute('position', '0 -2.0 0');
+                                    // Visible desde ambos lados por si el GPS spawnea la ruta justa encima de ti
+                                    node.setAttribute('material', 'color: #00f3ff; opacity: 0.6; transparent: true; emissive: #00f3ff; emissiveIntensity: 0.7; side: double');
+                                    
+                                    // Flotando a -1 metro (a media altura, de las piernas a los pies para evitar hundirse bajo tierra físicamente)
+                                    node.setAttribute('position', '0 -1.0 0');
                                     
                                     node.classList.add('ar-path-node');
                                     arScene.appendChild(node);
