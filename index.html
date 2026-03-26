@@ -464,7 +464,7 @@
     <!-- HUD -->
     <div id="augma-hud">
         <div class="hud-header">
-            <div class="hud-status" id="system-status">v0.06: STANDBY</div>
+            <div class="hud-status" id="system-status">v0.07: STANDBY</div>
             <div class="brujula-container">
                 <div class="brujula" id="brujula">
                     <span class="brujula-p n">N</span>
@@ -681,6 +681,9 @@
                         canvasCtx.restore();
                         cursorElement.style.display = 'none';
                     }
+
+                    // Dibujar la guia AR al final de CADA fotograma (mismo frame que el clear, sin race condition)
+                    drawARPath();
                 });
 
                 // Hookeamos directamente a AR.js para evitar colapso de permisos de cámara en móviles (Webcam Error Name)
@@ -703,7 +706,7 @@
 
             // Check if Google Maps is loaded
             if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
-                statusEl.innerText = 'v0.06: MAPS ERR';
+                statusEl.innerText = 'v0.07: MAPS ERR';
                 statusEl.classList.add('error');
                 apiWarning.style.display = 'block';
                 apiWarning.innerText = 'Google Maps API failed to load. Replace YOUR_API_KEY_HERE.';
@@ -732,7 +735,7 @@
                     });
 
                     directionsRenderer.setMap(map);
-                    statusEl.innerText = 'v0.06: ONLINE';
+                    statusEl.innerText = 'v0.07: ONLINE';
                 } catch (e) {
                     apiWarning.style.display = 'block';
                     apiWarning.innerText = 'Invalid API Key or Auth Error.';
@@ -748,7 +751,7 @@
                 const destination = destInput.value;
                 if (!destination) return;
 
-                statusEl.innerText = 'v0.06: LOCATING...';
+                statusEl.innerText = 'v0.07: LOCATING...';
 
                 if (navigator.geolocation) {
                     navigator.geolocation.getCurrentPosition(
@@ -761,20 +764,20 @@
                             calculateRoute(origin, destination);
                         },
                         (error) => {
-                            statusEl.innerText = 'v0.06: GPS ERROR';
+                            statusEl.innerText = 'v0.07: GPS ERROR';
                             statusEl.classList.add('error');
                             console.error(error);
                         },
                         { enableHighAccuracy: true }
                     );
                 } else {
-                    statusEl.innerText = 'v0.06: GPS NOT SUPPORTED';
+                    statusEl.innerText = 'v0.07: GPS NOT SUPPORTED';
                     statusEl.classList.add('error');
                 }
             });
 
             function calculateRoute(origin, destination) {
-                statusEl.innerText = 'v0.06: ROUTING...';
+                statusEl.innerText = 'v0.07: ROUTING...';
 
                 directionsService.route(
                     {
@@ -802,7 +805,7 @@
                                 map: map
                             });
 
-                            statusEl.innerText = 'v0.06: NAVIGATING';
+                            statusEl.innerText = 'v0.07: NAVIGATING';
                             overlay.style.opacity = '0';
                             setTimeout(() => overlay.style.display = 'none', 300);
 
@@ -814,7 +817,7 @@
                             // Lanzar el dibujado AR 2D (más fiable en móvil que gps-entity-place)
                             startARPathDraw();
                         } else {
-                            statusEl.innerText = 'v0.06: ROUTE ERR';
+                            statusEl.innerText = 'v0.07: ROUTE ERR';
                             statusEl.classList.add('error');
                         }
                     }
@@ -830,14 +833,10 @@
 
             function startARPathDraw() {
                 arPathActive = true;
-                drawARPathLoop();
+                // Ya NO hace falta un loop propio: drawARPath() se llama dentro de onResults cada frame
             }
 
-            function drawARPathLoop() {
-                if (!arPathActive) return;
-                drawARPath();
-                requestAnimationFrame(drawARPathLoop);
-            }
+            function drawARPathLoop() { /* eliminado - integrado en onResults */ }
 
             function drawARPath() {
                 if (!nextWaypointLatLng || !userLatLng) return;
@@ -958,7 +957,7 @@
                         uiAction.innerText = "DESTIN REA.";
                         arText.setAttribute('text', 'value: DESTINATION REACHED;');
                         arArrow.setAttribute('visible', 'false');
-                        statusEl.innerText = 'v0.06: ARRIVED';
+                        statusEl.innerText = 'v0.07: ARRIVED';
                     }
                 }
             }
