@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Augma AR Navigation</title>
+    <!-- Fonts -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+        :root {
+            --nav-cyan: #00f3ff;
+            --nav-cyan-glow: rgba(0, 243, 255, 0.4);
+            --bg-glass: rgba(5, 15, 30, 0.6);
+            --border-glass: rgba(0, 243, 255, 0.2);
+            --alert-red: #ff3366;
+            --font-main: 'Share Tech Mono', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: var(--font-main);
+            color: #fff;
+            background-color: #000;
+        }
+
+        /* HUD Overlay */
+        #augma-hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            /* Let clicks pass through to AR or map */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .hud-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            pointer-events: auto;
+        }
+
+        .hud-brand {
+            font-size: 1.5rem;
+            color: var(--nav-cyan);
+            text-shadow: 0 0 10px var(--nav-cyan-glow);
+            letter-spacing: 2px;
+            border-bottom: 2px solid var(--nav-cyan);
+            padding-bottom: 5px;
+            clip-path: polygon(0 0, 100% 0, 95% 100%, 0% 100%);
+            padding-right: 20px;
+        }
+
+        .hud-status {
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            padding: 5px 15px;
+            font-size: 0.9rem;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            color: var(--nav-cyan);
+            box-shadow: 0 0 15px var(--nav-cyan-glow);
+            border-radius: 4px;
+        }
+
+        .hud-status.error {
+            color: var(--alert-red);
+            border-color: var(--alert-red);
+            box-shadow: 0 0 15px rgba(255, 51, 102, 0.4);
+        }
+
+        .brujula {
+            width: 50px;
+            height: 50px;
+            border: 2px solid var(--nav-cyan);
+            border-radius: 50%;
+            position: relative;
+            background: var(--bg-glass);
+            box-shadow: 0 0 10px var(--nav-cyan-glow);
+            box-sizing: border-box;
+            transition: transform 0.1s ease-out;
+            cursor: pointer;
+        }
+
+        .brujula::before {
+            content: 'N';
+            position: absolute;
+            top: 2px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: var(--alert-red);
+            font-size: 14px;
+            font-weight: bold;
+            text-shadow: 0 0 5px red;
+        }
+
+        .brujula::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 4px;
+            height: 4px;
+            background: #fff;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 5px #fff;
+        }
+
+        #hand-cursor {
+            position: fixed;
+            width: 25px;
+            height: 25px;
+            border: 2px solid var(--nav-cyan);
+            background: rgba(0, 243, 255, 0.3);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9999;
+            transform: translate(-50%, -50%);
+            display: none;
+            transition: transform 0.1s, background-color 0.1s;
+        }
+
+        .hud-main {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: flex-end;
+            pointer-events: auto;
+            gap: 20px;
+            height: 300px;
+        }
+
+        .map-panel {
+            position: relative;
+            width: 350px;
+            height: 250px;
+            background: var(--bg-glass);
+            border: 1px solid var(--nav-cyan);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 0 20px var(--nav-cyan-glow);
+            display: flex;
+            flex-direction: column;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            background: #111;
+        }
+
+        .map-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            transition: opacity 0.3s ease;
+            z-index: 10;
+        }
+
+        .map-overlay h3 {
+            color: var(--nav-cyan);
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+            text-shadow: 0 0 5px var(--nav-cyan-glow);
+        }
+
+        .cyber-input {
+            width: 100%;
+            background: rgba(0, 243, 255, 0.1);
+            border: 1px solid var(--nav-cyan);
+            color: #fff;
+            padding: 10px;
+            font-family: var(--font-main);
+            outline: none;
+            margin-bottom: 15px;
+        }
+
+        .cyber-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .cyber-button {
+            background: transparent;
+            color: var(--nav-cyan);
+            border: 1px solid var(--nav-cyan);
+            padding: 10px 20px;
+            font-family: var(--font-main);
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.2s ease;
+            width: 100%;
+            box-shadow: inset 0 0 10px rgba(0, 243, 255, 0);
+        }
+
+        .cyber-button:hover {
+            background: var(--nav-cyan);
+            color: #000;
+            box-shadow: 0 0 15px var(--nav-cyan-glow);
+        }
+
+        .info-panel {
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            border-left: 3px solid var(--nav-cyan);
+            padding: 15px;
+            min-width: 200px;
+            width: 500px;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-item .label {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 2px;
+        }
+
+        .info-item .value {
+            font-size: 1.4rem;
+            color: var(--nav-cyan);
+            text-shadow: 0 0 8px var(--nav-cyan-glow);
+        }
+
+        .reticle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            height: 300px;
+            border: 1px solid rgba(0, 243, 255, 0.1);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .reticle::before,
+        .reticle::after {
+            content: '';
+            position: absolute;
+            background: rgba(0, 243, 255, 0.3);
+        }
+
+        .reticle::before {
+            top: -10px;
+            bottom: -10px;
+            left: 50%;
+            width: 1px;
+        }
+
+        .reticle::after {
+            left: -10px;
+            right: -10px;
+            top: 50%;
+            height: 1px;
+        }
+
+        .reticle-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            border: 2px solid var(--nav-cyan);
+            border-radius: 50%;
+            box-shadow: 0 0 15px var(--nav-cyan-glow);
+            animation: pulse 2s infinite alternate;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 0.8;
+            }
+
+            100% {
+                transform: translate(-50%, -50%) scale(1.1);
+                opacity: 0.3;
+            }
+        }
+
+        /* A-Frame UI hiding */
+        .a-enter-vr {
+            display: none !important;
+        }
+
+        @media screen and (max-width: 768px) {
+            .hud-main {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .map-panel {
+                width: 100%;
+                height: 200px;
+            }
+
+            .info-panel {
+                width: 100%;
+                flex-direction: row;
+                justify-content: space-between;
+            }
+        }
+    </style>
+    <!-- A-Frame and AR.js -->
+    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <!-- MediaPipe Hands for Hand Tracking -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=[GCP_API_KEY]&libraries=places"></script>
+</head>
+
+<body>
+
+    <!-- AR Scene -->
+    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false; trackingMethod: best;"
+        renderer="antialias: true; alpha: true">
+        <a-camera id="camera" gps-camera rotation-reader></a-camera>
+
+        <!-- Dynamic AR Directional Arrow -->
+        <a-entity id="ar-arrow" geometry="primitive: cone; radiusBottom: 0.3; radiusTop: 0; height: 1.2"
+            material="color: #00f3ff; opacity: 0.9; transparent: true; emissive: #00f3ff; emissiveIntensity: 0.5"
+            position="0 -0.5 -4" rotation="90 0 0"
+            animation="property: position; dir: alternate; dur: 1000; to: 0 0 -4; loop: true" visible="false">
+        </a-entity>
+
+        <!-- Dynamic AR Distance Text -->
+        <a-entity id="ar-text" text="value: 0m; color: #00f3ff; align: center; width: 4" position="0 -1.5 -4"
+            visible="false">
+        </a-entity>
+    </a-scene>
+
+    <!-- Hand Tracking Elements -->
+    <canvas id="output_canvas" style="position:fixed; top:0; left:0; pointer-events:none; z-index:9998;"></canvas>
+    <div id="hand-cursor"></div>
+    <video id="input_video" style="display:none;"></video>
+
+    <!-- HUD -->
+    <div id="augma-hud">
+        <div class="hud-header">
+            <div class="hud-status" id="system-status">SYS: STANDBY</div>
+            <div class="brujula" id="brujula"></div>
+        </div>
+
+        <!-- Reticle -->
+        <!-- <div class="reticle">
+            <div class="reticle-center"></div>
+        </div> -->
+
+        <div class="hud-main">
+            <div class="info-panel">
+                <div class="info-item">
+                    <span class="label">DIST TO TARGET</span>
+                    <span class="value" id="ui-distance">-- m</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">ETA</span>
+                    <span class="value" id="ui-eta">-- min</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">ACTION</span>
+                    <span class="value" id="ui-action">AWAITING</span>
+                </div>
+            </div>
+
+            <div class="map-panel">
+                <div id="map"></div>
+                <div id="input-overlay" class="map-overlay">
+                    <h3>DESTINATION LINK</h3>
+                    <input type="text" id="dest-input" class="cyber-input" placeholder="Enter target location...">
+                    <button id="start-nav-btn" class="cyber-button">INITIATE ROUTE</button>
+                    <div id="api-warning"
+                        style="color: var(--alert-red); font-size: 0.8rem; margin-top: 10px; display: none;">API KEY
+                        REQUIRED</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Logic -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const statusEl = document.getElementById('system-status');
+            const destInput = document.getElementById('dest-input');
+            const startBtn = document.getElementById('start-nav-btn');
+            const overlay = document.getElementById('input-overlay');
+            const uiDist = document.getElementById('ui-distance');
+            const uiEta = document.getElementById('ui-eta');
+            const uiAction = document.getElementById('ui-action');
+            const arArrow = document.getElementById('ar-arrow');
+            const arText = document.getElementById('ar-text');
+            const apiWarning = document.getElementById('api-warning');
+
+            let map, directionsService, directionsRenderer;
+            let currentWatchId = null;
+            let currentRouteSteps = [];
+            let currentStepIndex = 0;
+
+            // --- Brujula (Compass) Logic ---
+            const brujula = document.getElementById('brujula');
+            let lastHeading = 0;
+
+            function handleOrientation(e) {
+                let heading;
+                if (e.webkitCompassHeading !== undefined && e.webkitCompassHeading !== null) {
+                    // iOS
+                    heading = e.webkitCompassHeading;
+                } else if (e.alpha !== null) {
+                    // Android/Chrome: el eje "alpha" crece en sentido contrario a las agujas del reloj
+                    // por lo tanto tenemos que restarlo de 360 para obtener un heading "real" (N=0, E=90, S=180, W=270)
+                    heading = 360 - e.alpha;
+                }
+
+                if (heading !== undefined) {
+                    // Evitar salto brusco de 360 a 0
+                    let delta = heading - (lastHeading % 360);
+                    if (delta > 180) delta -= 360;
+                    if (delta < -180) delta += 360;
+                    lastHeading += delta;
+
+                    brujula.style.transform = `rotate(${-lastHeading}deg)`;
+                }
+            }
+
+            if ('ondeviceorientationabsolute' in window) {
+                window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+            } else {
+                window.addEventListener('deviceorientation', handleOrientation, true);
+            }
+
+            // Permiso de orientacion para iOS13+
+            brujula.addEventListener('click', () => {
+                if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    DeviceOrientationEvent.requestPermission()
+                        .then(response => {
+                            if (response == 'granted') {
+                                window.addEventListener('deviceorientation', handleOrientation, true);
+                            }
+                        })
+                        .catch(console.error);
+                }
+            });
+
+            // --- Hand Tracking (MediaPipe) Logic ---
+            const videoElement = document.getElementById('input_video');
+            const canvasElement = document.getElementById('output_canvas');
+            const canvasCtx = canvasElement.getContext('2d');
+            const cursorElement = document.getElementById('hand-cursor');
+            let isPinching = false;
+            let pinchCooldown = false;
+
+            if (typeof Hands !== 'undefined') {
+                const hands = new Hands({
+                    locateFile: (file) => {
+                        return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+                    }
+                });
+
+                hands.setOptions({
+                    maxNumHands: 2,
+                    modelComplexity: 1,
+                    minDetectionConfidence: 0.6,
+                    minTrackingConfidence: 0.6
+                });
+
+                hands.onResults((results) => {
+                    const arVideo = document.getElementById('arjs-video') || videoElement; // Hook into AR.js video if available
+
+                    if (arVideo) {
+                        // Emparejar EXACTAMENTE la escala del canvas interno y el ancho/alto CSS del overlay de vídeo de AR.js
+                        canvasElement.style.width = arVideo.style.width || `${window.innerWidth}px`;
+                        canvasElement.style.height = arVideo.style.height || `${window.innerHeight}px`;
+                        canvasElement.style.marginLeft = arVideo.style.marginLeft || '0px';
+                        canvasElement.style.marginTop = arVideo.style.marginTop || '0px';
+
+                        canvasElement.width = arVideo.videoWidth || window.innerWidth;
+                        canvasElement.height = arVideo.videoHeight || window.innerHeight;
+                    }
+
+                    canvasCtx.save();
+                    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+                    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                        // Dibujar las líneas y puntos de la mano
+                        if (typeof drawConnectors !== 'undefined' && typeof HAND_CONNECTIONS !== 'undefined') {
+                            for (const landmarks of results.multiHandLandmarks) {
+                                drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, { color: 'rgba(0, 243, 255, 0.8)', lineWidth: 2 });
+                                drawLandmarks(canvasCtx, landmarks, { color: 'rgba(255, 51, 102, 0.8)', lineWidth: 1, radius: 2 });
+                            }
+                        }
+
+                        canvasCtx.restore(); // Restaurar para el proximo frame
+
+                        cursorElement.style.display = 'block';
+                        const landmarks = results.multiHandLandmarks[0];
+                        const indexTip = landmarks[8];
+                        const thumbTip = landmarks[4];
+
+                        // Parsear el estilo real y las resoluciones de AR.js para proyectarlo pixel-perfecto
+                        const arVideo = document.getElementById('arjs-video') || videoElement;
+                        let vWidth = arVideo ? (parseFloat(arVideo.style.width) || arVideo.videoWidth || window.innerWidth) : window.innerWidth;
+                        let vHeight = arVideo ? (parseFloat(arVideo.style.height) || arVideo.videoHeight || window.innerHeight) : window.innerHeight;
+                        let mLeft = arVideo ? (parseFloat(arVideo.style.marginLeft) || 0) : 0;
+                        let mTop = arVideo ? (parseFloat(arVideo.style.marginTop) || 0) : 0;
+
+                        // Eje X e Y proyectado al monitor midiendo dimensiones del vídeo y crop
+                        const cursorX = (indexTip.x * vWidth) + mLeft;
+                        const cursorY = (indexTip.y * vHeight) + mTop;
+
+                        cursorElement.style.left = `${cursorX}px`;
+                        cursorElement.style.top = `${cursorY}px`;
+
+                        // Calcular distancia entre pulgar e índice
+                        const dist = Math.hypot(indexTip.x - thumbTip.x, indexTip.y - thumbTip.y);
+
+                        if (dist < 0.05) { // Gesto de pellizco (Pinch)
+                            if (!isPinching && !pinchCooldown) {
+                                isPinching = true;
+                                cursorElement.style.transform = 'translate(-50%, -50%) scale(0.6)';
+                                cursorElement.style.backgroundColor = 'var(--alert-red)';
+
+                                // Simular click en las coordenadas del cursor
+                                cursorElement.style.pointerEvents = 'none'; // Evitar clics en el propio cursor
+                                const element = document.elementFromPoint(cursorX, cursorY);
+                                if (element) {
+                                    if (element.tagName === 'INPUT') {
+                                        element.focus();
+                                    } else if (typeof element.click === 'function') {
+                                        element.click();
+                                    }
+                                }
+
+                                pinchCooldown = true;
+                                setTimeout(() => pinchCooldown = false, 500); // Cooldown para no clickear 10 veces por segundo
+                            }
+                        } else {
+                            if (isPinching) {
+                                isPinching = false;
+                                cursorElement.style.transform = 'translate(-50%, -50%) scale(1)';
+                                cursorElement.style.backgroundColor = 'rgba(0, 243, 255, 0.3)';
+                            }
+                        }
+                    } else {
+                        canvasCtx.restore();
+                        cursorElement.style.display = 'none';
+                    }
+                });
+
+                // En lugar de instanciar un Camera() nuevo paralelo en WebRTC que gasta recuros, enganchamos al video nativo de AR.js en un bucle!
+                let isInjectingCamera = false;
+                async function arjsLoop() {
+                    const arVideo = document.getElementById('arjs-video');
+                    if (arVideo && !arVideo.paused && arVideo.videoWidth > 0) {
+                        isInjectingCamera = true;
+                        try {
+                            await hands.send({ image: arVideo });
+                        } catch (e) { /* ignore rapid frame fails */ }
+                    } else if (!isInjectingCamera) {
+                        // Solo por si AR.js tarda, inicializamos la camara mediapipe estándar
+                        try {
+                            const camera = new Camera(videoElement, {
+                                onFrame: async () => {
+                                    if (!document.getElementById('arjs-video')) await hands.send({ image: videoElement });
+                                },
+                                width: 640,
+                                height: 480
+                            });
+                            camera.start();
+                            isInjectingCamera = true;
+                        } catch (e) { }
+                    }
+                    requestAnimationFrame(arjsLoop);
+                }
+                arjsLoop();
+            }
+
+            // Check if Google Maps is loaded
+            if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
+                statusEl.innerText = 'SYS: MAPS ERR';
+                statusEl.classList.add('error');
+                apiWarning.style.display = 'block';
+                apiWarning.innerText = 'Google Maps API failed to load. Replace YOUR_API_KEY_HERE.';
+                return;
+            }
+
+            // Init Map
+            function initMap() {
+                try {
+                    directionsService = new google.maps.DirectionsService();
+                    directionsRenderer = new google.maps.DirectionsRenderer({
+                        polylineOptions: { strokeColor: '#00f3ff', strokeWeight: 5 },
+                        suppressMarkers: false
+                    });
+
+                    map = new google.maps.Map(document.getElementById('map'), {
+                        zoom: 15,
+                        center: { lat: 0, lng: 0 },
+                        disableDefaultUI: true,
+                        styles: [
+                            { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+                            { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+                            { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+                            { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
+                            { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
+                            { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#9ca5b3" }] },
+                            { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#746855" }] },
+                            { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#1f2835" }] },
+                            { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#f3d19c" }] },
+                        ] // Dark mode map
+                    });
+
+                    directionsRenderer.setMap(map);
+                    statusEl.innerText = 'SYS: ONLINE';
+                } catch (e) {
+                    apiWarning.style.display = 'block';
+                    apiWarning.innerText = 'Invalid API Key or Auth Error.';
+                }
+            }
+
+            initMap();
+
+            // Autocomplete
+            const autocomplete = new google.maps.places.Autocomplete(destInput);
+
+            startBtn.addEventListener('click', () => {
+                const destination = destInput.value;
+                if (!destination) return;
+
+                statusEl.innerText = 'SYS: LOCATING...';
+
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            const origin = {
+                                lat: position.coords.latitude,
+                                lng: position.coords.longitude
+                            };
+                            map.setCenter(origin);
+                            calculateRoute(origin, destination);
+                        },
+                        (error) => {
+                            statusEl.innerText = 'SYS: GPS ERROR';
+                            statusEl.classList.add('error');
+                            console.error(error);
+                        },
+                        { enableHighAccuracy: true }
+                    );
+                } else {
+                    statusEl.innerText = 'SYS: GPS NOT SUPPORTED';
+                    statusEl.classList.add('error');
+                }
+            });
+
+            function calculateRoute(origin, destination) {
+                statusEl.innerText = 'SYS: ROUTING...';
+
+                directionsService.route(
+                    {
+                        origin: origin,
+                        destination: destination,
+                        travelMode: google.maps.TravelMode.WALKING
+                    },
+                    (response, status) => {
+                        if (status === 'OK') {
+                            directionsRenderer.setDirections(response);
+                            overlay.style.opacity = '0';
+                            setTimeout(() => overlay.style.display = 'none', 300);
+
+                            statusEl.innerText = 'SYS: NAVIGATING';
+
+                            const route = response.routes[0].legs[0];
+                            currentRouteSteps = route.steps;
+                            currentStepIndex = 0;
+
+                            startTracking(route.end_location);
+                        } else {
+                            statusEl.innerText = 'SYS: ROUTE ERR';
+                            statusEl.classList.add('error');
+                        }
+                    }
+                );
+            }
+
+            function startTracking(destinationLatLng) {
+                if (currentWatchId) navigator.geolocation.clearWatch(currentWatchId);
+
+                // Show AR elements
+                arArrow.setAttribute('visible', 'true');
+                arText.setAttribute('visible', 'true');
+
+                currentWatchId = navigator.geolocation.watchPosition(
+                    (position) => {
+                        updateNavigation(position.coords);
+                    },
+                    (error) => console.error(error),
+                    { enableHighAccuracy: true, maximumAge: 0 }
+                );
+            }
+
+            function updateNavigation(coords) {
+                const currentLoc = new google.maps.LatLng(coords.latitude, coords.longitude);
+
+                if (currentStepIndex < currentRouteSteps.length) {
+                    const step = currentRouteSteps[currentStepIndex];
+                    const distToNextStep = google.maps.geometry.spherical.computeDistanceBetween(currentLoc, step.end_location);
+
+                    // Simple logic to advance steps
+                    if (distToNextStep < 10) {
+                        currentStepIndex++;
+                    }
+
+                    if (currentStepIndex < currentRouteSteps.length) {
+                        const activeStep = currentRouteSteps[currentStepIndex];
+
+                        // Strip HTML tags for HUD
+                        const instruction = activeStep.instructions.replace(/<[^>]*>?/gm, '');
+
+                        uiDist.innerText = activeStep.distance.text;
+                        uiEta.innerText = activeStep.duration.text;
+                        uiAction.innerText = instruction;
+
+                        arText.setAttribute('text', `value: ${activeStep.distance.text}\n${instruction};`);
+
+                        // Fake Arrow Rotation (Since we lack a reliable compass on standard web without specific permissions)
+                        // In a real device, deviceorientation event would compass-align the arrow.
+                        // For simulation, we point it forward or slightly left/right based on instructions.
+                        if (instruction.toLowerCase().includes('left') || instruction.toLowerCase().includes('izquierda')) {
+                            arArrow.setAttribute('rotation', '90 45 0');
+                        } else if (instruction.toLowerCase().includes('right') || instruction.toLowerCase().includes('derecha')) {
+                            arArrow.setAttribute('rotation', '90 -45 0');
+                        } else {
+                            arArrow.setAttribute('rotation', '90 0 0');
+                        }
+                    } else {
+                        uiAction.innerText = "DESTIN REA.";
+                        arText.setAttribute('text', 'value: DESTINATION REACHED;');
+                        arArrow.setAttribute('visible', 'false');
+                        statusEl.innerText = 'SYS: ARRIVED';
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>
