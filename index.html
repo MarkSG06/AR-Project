@@ -375,6 +375,10 @@
                 text-align: center;
             }
             
+            .action-item {
+                display: none !important;
+            }
+            
             .hud-status {
                 font-size: 0.75rem;
                 padding: 3px 10px;
@@ -460,7 +464,7 @@
                     <span class="label">ETA</span>
                     <span class="value" id="ui-eta">-- min</span>
                 </div>
-                <div class="info-item">
+                <div class="info-item action-item">
                     <span class="label">ACTION</span>
                     <span class="value" id="ui-action">AWAITING</span>
                 </div>
@@ -520,8 +524,9 @@
                     if (delta > 180) delta -= 360;
                     if (delta < -180) delta += 360;
                     lastHeading += delta;
-
+                    
                     brujula.style.transform = `rotate(${-lastHeading}deg)`;
+                    if (typeof map !== 'undefined' && map) map.setHeading(lastHeading);
                 }
             }
 
@@ -687,20 +692,11 @@
 
                     map = new google.maps.Map(document.getElementById('map'), {
                         zoom: 18,
-                        tilt: 60, // Perspectiva 3D tipo GPS
+                        tilt: 67, // Ángulo agresivo 3D tipo GPS
+                        heading: 0,
+                        mapId: 'DEMO_MAP_ID', // Obligatorio para activar el motor WebGL 3D de Google Maps (edificios y perspectiva)
                         center: { lat: 0, lng: 0 },
-                        disableDefaultUI: true,
-                        styles: [
-                            { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
-                            { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
-                            { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
-                            { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
-                            { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
-                            { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#9ca5b3" }] },
-                            { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#746855" }] },
-                            { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#1f2835" }] },
-                            { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#f3d19c" }] },
-                        ] // Dark mode map
+                        disableDefaultUI: true
                     });
 
                     directionsRenderer.setMap(map);
@@ -766,6 +762,28 @@
                             currentRouteSteps = route.steps;
                             currentStepIndex = 0;
 
+                            // ---- DIBUJAR LÍNEA (MIGAS DE PAN AR) EN EL MUNDO REAL ----
+                            const arScene = document.querySelector('a-scene');
+                            // Borrar ruta AR física anterior si la hubiera
+                            document.querySelectorAll('.ar-path-node').forEach(el => el.remove());
+                            
+                            // Trazado detallado de GPS de la ruta
+                            const path = response.routes[0].overview_path;
+                            
+                            // Renderizar un orbe de luz cyan espaciado para marcar el camino AR
+                            const stepSize = Math.max(1, Math.floor(path.length / 150));
+                            for (let i = 0; i < path.length; i += stepSize) {
+                                const p = path[i];
+                                const node = document.createElement('a-entity');
+                                node.setAttribute('gps-entity-place', `latitude: ${p.lat()}; longitude: ${p.lng()};`);
+                                node.setAttribute('geometry', 'primitive: sphere; radius: 1.0');
+                                node.setAttribute('material', 'color: #00f3ff; opacity: 0.5; transparent: true; emissive: #00f3ff; emissiveIntensity: 0.8');
+                                // Simulamos que están a ras de suelo o flotando muy bajo
+                                node.setAttribute('position', '0 -2 0');
+                                node.classList.add('ar-path-node');
+                                arScene.appendChild(node);
+                            }
+
                             startTracking(route.end_location);
                         } else {
                             statusEl.innerText = 'SYS: ROUTE ERR';
@@ -793,6 +811,9 @@
 
             function updateNavigation(coords) {
                 const currentLoc = new google.maps.LatLng(coords.latitude, coords.longitude);
+                
+                // Centrar dinámicamente el mapa pseudo-3D como un GPS de coche apuntando al coche
+                if (map) map.panTo(currentLoc);
 
                 if (currentStepIndex < currentRouteSteps.length) {
                     const step = currentRouteSteps[currentStepIndex];
