@@ -38,8 +38,10 @@
             position: absolute;
             top: 0;
             left: 0;
-            width: 100vw;
-            height: 100vh;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
             pointer-events: none;
             /* Let clicks pass through to AR or map */
             display: flex;
@@ -47,6 +49,8 @@
             justify-content: space-between;
             z-index: 1000;
             padding: 20px;
+            box-sizing: border-box;
+            overflow: hidden;
         }
 
         .hud-header {
@@ -98,18 +102,6 @@
             cursor: pointer;
         }
 
-        .brujula::before {
-            content: 'N';
-            position: absolute;
-            top: 2px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: var(--alert-red);
-            font-size: 14px;
-            font-weight: bold;
-            text-shadow: 0 0 5px red;
-        }
-
         .brujula::after {
             content: '';
             position: absolute;
@@ -122,6 +114,18 @@
             transform: translate(-50%, -50%);
             box-shadow: 0 0 5px #fff;
         }
+
+        .brujula-p {
+            position: absolute;
+            font-size: 10px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 3px rgba(255,255,255,0.5);
+        }
+        .brujula-p.n { top: 2px; left: 50%; transform: translateX(-50%); color: var(--alert-red); text-shadow: 0 0 5px red; font-size: 12px; }
+        .brujula-p.s { bottom: 2px; left: 50%; transform: translateX(-50%); }
+        .brujula-p.e { top: 50%; right: 2px; transform: translateY(-50%); }
+        .brujula-p.w { top: 50%; left: 2px; transform: translateY(-50%); }
 
         #hand-cursor {
             position: fixed;
@@ -333,7 +337,7 @@
 
             .map-panel {
                 width: 100%;
-                height: 220px;
+                height: 150px;
             }
 
             .info-panel {
@@ -412,7 +416,12 @@
     <div id="augma-hud">
         <div class="hud-header">
             <div class="hud-status" id="system-status">SYS: STANDBY</div>
-            <div class="brujula" id="brujula"></div>
+            <div class="brujula" id="brujula">
+                <span class="brujula-p n">N</span>
+                <span class="brujula-p s">S</span>
+                <span class="brujula-p e">E</span>
+                <span class="brujula-p w">W</span>
+            </div>
         </div>
 
         <!-- Reticle -->
@@ -619,28 +628,13 @@
                     }
                 });
 
-                // En lugar de instanciar un Camera() nuevo paralelo en WebRTC que gasta recuros, enganchamos al video nativo de AR.js en un bucle!
-                let isInjectingCamera = false;
+                // Hookeamos directamente a AR.js para evitar colapso de permisos de cámara en móviles (Webcam Error Name)
                 async function arjsLoop() {
                     const arVideo = document.getElementById('arjs-video');
                     if (arVideo && !arVideo.paused && arVideo.videoWidth > 0) {
-                        isInjectingCamera = true;
                         try {
                             await hands.send({ image: arVideo });
                         } catch (e) { /* ignore rapid frame fails */ }
-                    } else if (!isInjectingCamera) {
-                        // Solo por si AR.js tarda, inicializamos la camara mediapipe estándar
-                        try {
-                            const camera = new Camera(videoElement, {
-                                onFrame: async () => {
-                                    if (!document.getElementById('arjs-video')) await hands.send({ image: videoElement });
-                                },
-                                width: 640,
-                                height: 480
-                            });
-                            camera.start();
-                            isInjectingCamera = true;
-                        } catch (e) { }
                     }
                     requestAnimationFrame(arjsLoop);
                 }
