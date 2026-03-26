@@ -464,7 +464,7 @@
     <!-- HUD -->
     <div id="augma-hud">
         <div class="hud-header">
-            <div class="hud-status" id="system-status">v0.04: STANDBY</div>
+            <div class="hud-status" id="system-status">v0.05: STANDBY</div>
             <div class="brujula-container">
                 <div class="brujula" id="brujula">
                     <span class="brujula-p n">N</span>
@@ -703,7 +703,7 @@
 
             // Check if Google Maps is loaded
             if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
-                statusEl.innerText = 'v0.04: MAPS ERR';
+                statusEl.innerText = 'v0.05: MAPS ERR';
                 statusEl.classList.add('error');
                 apiWarning.style.display = 'block';
                 apiWarning.innerText = 'Google Maps API failed to load. Replace YOUR_API_KEY_HERE.';
@@ -732,7 +732,7 @@
                     });
 
                     directionsRenderer.setMap(map);
-                    statusEl.innerText = 'v0.04: ONLINE';
+                    statusEl.innerText = 'v0.05: ONLINE';
                 } catch (e) {
                     apiWarning.style.display = 'block';
                     apiWarning.innerText = 'Invalid API Key or Auth Error.';
@@ -748,7 +748,7 @@
                 const destination = destInput.value;
                 if (!destination) return;
 
-                statusEl.innerText = 'v0.04: LOCATING...';
+                statusEl.innerText = 'v0.05: LOCATING...';
 
                 if (navigator.geolocation) {
                     navigator.geolocation.getCurrentPosition(
@@ -761,20 +761,20 @@
                             calculateRoute(origin, destination);
                         },
                         (error) => {
-                            statusEl.innerText = 'v0.04: GPS ERROR';
+                            statusEl.innerText = 'v0.05: GPS ERROR';
                             statusEl.classList.add('error');
                             console.error(error);
                         },
                         { enableHighAccuracy: true }
                     );
                 } else {
-                    statusEl.innerText = 'v0.04: GPS NOT SUPPORTED';
+                    statusEl.innerText = 'v0.05: GPS NOT SUPPORTED';
                     statusEl.classList.add('error');
                 }
             });
 
             function calculateRoute(origin, destination) {
-                statusEl.innerText = 'v0.04: ROUTING...';
+                statusEl.innerText = 'v0.05: ROUTING...';
 
                 directionsService.route(
                     {
@@ -802,7 +802,7 @@
                                 map: map
                             });
 
-                            statusEl.innerText = 'v0.04: NAVIGATING';
+                            statusEl.innerText = 'v0.05: NAVIGATING';
                             overlay.style.opacity = '0';
                             setTimeout(() => overlay.style.display = 'none', 300);
 
@@ -829,28 +829,31 @@
                                 if (dist < 0.5) continue;
 
                                 const isMobileAR = window.innerWidth < 768;
-                                // En móvil espaciamos más las bolas (cada 8m) porque las haremos colosales
-                                const spacing = isMobileAR ? 8.0 : 4.0;
-                                const numSpheres = Math.max(1, Math.floor(dist / spacing));
+                                // Colocamos un marcador flotante gigante cada 10 metros para no saturar
+                                const spacing = 15.0;
+                                const numMarkers = Math.max(1, Math.floor(dist / spacing));
 
-                                for (let j = 0; j <= numSpheres; j++) {
-                                    const fraction = j / numSpheres;
+                                for (let j = 0; j <= numMarkers; j++) {
+                                    const fraction = j / numMarkers;
                                     const point = google.maps.geometry.spherical.interpolate(p1, p2, fraction);
 
                                     const node = document.createElement('a-entity');
                                     node.setAttribute('gps-entity-place', `latitude: ${point.lat()}; longitude: ${point.lng()};`);
 
-                                    // Radio de 10 metros en móvil (¡20m de diámetro!) para que se vean sí o sí
-                                    const radius = isMobileAR ? 10.0 : 3.5;
-                                    node.setAttribute('geometry', `primitive: sphere; radius: ${radius}; segments-width: 8; segments-height: 8`);
+                                    // ¡Adiós a las esferas estorbosas! Usamos un "Diamante Holográfico" (Cono invertido de 4 caras estilo videojuego real)
+                                    const radius = isMobileAR ? 2.5 : 1.5;
+                                    const height = isMobileAR ? 4.0 : 3.0;
+                                    node.setAttribute('geometry', `primitive: cone; radiusBottom: 0; radiusTop: ${radius}; height: ${height}; segmentsRadial: 4`);
 
-                                    // Opacidad más baja en móvil (0.25) para que no te cieguen por ser tan enormes
-                                    const opacity = isMobileAR ? 0.25 : 0.4;
-                                    node.setAttribute('material', `color: #00f3ff; opacity: ${opacity}; transparent: true; emissive: #00f3ff; emissiveIntensity: 0.8; side: double`);
+                                    node.setAttribute('material', `color: #00f3ff; opacity: 0.85; transparent: true; emissive: #00f3ff; emissiveIntensity: 0.9; side: double; flatShading: true`);
 
-                                    // En móvil las levantamos a la altura de los ojos (0) para que dominen el centro de la pantalla
-                                    const yPos = isMobileAR ? 0 : -1.0;
+                                    // SALVAVIDAS: ¡Flotando a 4 metros de altura (position Y = 4.0)! 
+                                    // Así, aunque camines literalmente debajo, será como un techo de luz y no te bloqueará NUNCA la cámara.
+                                    const yPos = isMobileAR ? 4.0 : 3.5;
                                     node.setAttribute('position', `0 ${yPos} 0`);
+
+                                    // Animación de rotación constante hiper-futurista
+                                    node.setAttribute('animation', 'property: rotation; to: 0 360 0; loop: true; dur: 4000; easing: linear');
 
                                     node.classList.add('ar-path-node');
                                     arScene.appendChild(node);
@@ -862,7 +865,7 @@
 
                             startTracking(route.end_location);
                         } else {
-                            statusEl.innerText = 'v0.04: ROUTE ERR';
+                            statusEl.innerText = 'v0.05: ROUTE ERR';
                             statusEl.classList.add('error');
                         }
                     }
@@ -926,7 +929,7 @@
                         uiAction.innerText = "DESTIN REA.";
                         arText.setAttribute('text', 'value: DESTINATION REACHED;');
                         arArrow.setAttribute('visible', 'false');
-                        statusEl.innerText = 'v0.04: ARRIVED';
+                        statusEl.innerText = 'v0.05: ARRIVED';
                     }
                 }
             }
