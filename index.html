@@ -692,9 +692,12 @@
                         suppressMarkers: false
                     });
 
+                    // Ajustamos el nivel de zoom y la inclinación 3D para que en el panel diminuto del móvil
+                    // la línea no se vea aplastada ni grotescamente ancha respecto a la calle.
+                    const isMobileMap = window.innerWidth < 768;
                     map = new google.maps.Map(document.getElementById('map'), {
-                        zoom: 18,
-                        tilt: 67, // Ángulo agresivo 3D tipo GPS
+                        zoom: isMobileMap ? 17 : 18,
+                        tilt: isMobileMap ? 55 : 67, 
                         heading: 0,
                         mapId: 'DEMO_MAP_ID', // Obligatorio para activar el motor WebGL 3D de Google Maps (edificios y perspectiva)
                         center: { lat: 0, lng: 0 },
@@ -763,11 +766,12 @@
                             const path = response.routes[0].overview_path;
 
                             // Dibujamos nuestra propia línea sólida 100% estilo coche (gruesa y contínua) sobre el mapa
+                            const isMobileLine = window.innerWidth < 768;
                             customMapPolyline = new google.maps.Polyline({
                                 path: path,
                                 strokeColor: '#00f3ff',
                                 strokeOpacity: 0.9,
-                                strokeWeight: 8,
+                                strokeWeight: isMobileLine ? 4 : 8, // Línea mucho más fina en móvil para no colapsar el mapa
                                 map: map
                             });
 
@@ -800,8 +804,9 @@
                                 const node = document.createElement('a-entity');
                                 node.setAttribute('gps-entity-place', `latitude: ${mid.lat()}; longitude: ${mid.lng()};`);
                                 
-                                // Una caja súper aplastada (0.1m height) y estirada +2 metros para solapar y crear "una sola línea" fundida
-                                node.setAttribute('geometry', `primitive: box; width: 1.2; height: 0.1; depth: ${dist + 2.5}`);
+                                // En móviles, reducimos la anchura de la caja (0.5m) para que en AR no cubra demasiado
+                                const lineWidth = window.innerWidth < 768 ? 0.5 : 1.2;
+                                node.setAttribute('geometry', `primitive: box; width: ${lineWidth}; height: 0.1; depth: ${dist + 2.5}`);
                                 
                                 // Textura cyber/neon con transparencia (pista azul sólida sin bordes)
                                 node.setAttribute('material', 'color: #00f3ff; opacity: 0.6; transparent: true; emissive: #00f3ff; emissiveIntensity: 0.8');
