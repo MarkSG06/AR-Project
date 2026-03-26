@@ -128,12 +128,35 @@
             font-size: 10px;
             font-weight: bold;
             color: #fff;
-            text-shadow: 0 0 3px rgba(255,255,255,0.5);
+            text-shadow: 0 0 3px rgba(255, 255, 255, 0.5);
         }
-        .brujula-p.n { top: 2px; left: 50%; transform: translateX(-50%); color: var(--alert-red); text-shadow: 0 0 5px red; font-size: 12px; }
-        .brujula-p.s { bottom: 2px; left: 50%; transform: translateX(-50%); }
-        .brujula-p.e { top: 50%; right: 2px; transform: translateY(-50%); }
-        .brujula-p.w { top: 50%; left: 2px; transform: translateY(-50%); }
+
+        .brujula-p.n {
+            top: 2px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: var(--alert-red);
+            text-shadow: 0 0 5px red;
+            font-size: 12px;
+        }
+
+        .brujula-p.s {
+            bottom: 2px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .brujula-p.e {
+            top: 50%;
+            right: 2px;
+            transform: translateY(-50%);
+        }
+
+        .brujula-p.w {
+            top: 50%;
+            left: 2px;
+            transform: translateY(-50%);
+        }
 
         #hand-cursor {
             position: fixed;
@@ -169,7 +192,7 @@
             -webkit-backdrop-filter: blur(10px);
             border-radius: 20px;
             overflow: hidden;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
             display: flex;
             flex-direction: column;
         }
@@ -250,7 +273,7 @@
             flex-direction: row;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
             gap: 15px;
         }
 
@@ -341,7 +364,8 @@
             }
 
             .hud-main {
-                flex-direction: row; /* Para poner panel y mapa lado a lado */
+                flex-direction: row;
+                /* Para poner panel y mapa lado a lado */
                 justify-content: space-between;
                 align-items: flex-end;
                 height: auto;
@@ -350,8 +374,10 @@
 
             .map-panel {
                 width: 100%;
-                height: 160px; /* Forzamos tamaño miniatura fijo para no ahogar la pantalla AR */
-                flex: none; /* Eliminamos el estirado automático */
+                height: 160px;
+                /* Forzamos tamaño miniatura fijo para no ahogar la pantalla AR */
+                flex: none;
+                /* Eliminamos el estirado automático */
             }
 
             .info-panel {
@@ -362,7 +388,8 @@
                 flex-direction: column;
                 justify-content: center;
                 gap: 12px;
-                align-self: stretch; /* Estirar a lo alto si se puede */
+                align-self: stretch;
+                /* Estirar a lo alto si se puede */
             }
 
             .info-item .value {
@@ -374,11 +401,11 @@
                 font-size: 0.55rem;
                 text-align: center;
             }
-            
+
             .action-item {
                 display: none !important;
             }
-            
+
             .hud-status {
                 font-size: 0.75rem;
                 padding: 3px 10px;
@@ -437,7 +464,7 @@
     <!-- HUD -->
     <div id="augma-hud">
         <div class="hud-header">
-            <div class="hud-status" id="system-status">SYS: STANDBY</div>
+            <div class="hud-status" id="system-status">v0.03: STANDBY</div>
             <div class="brujula-container">
                 <div class="brujula" id="brujula">
                     <span class="brujula-p n">N</span>
@@ -526,7 +553,7 @@
                     if (delta > 180) delta -= 360;
                     if (delta < -180) delta += 360;
                     lastHeading += delta;
-                    
+
                     brujula.style.transform = `rotate(${-lastHeading}deg)`;
                     if (typeof map !== 'undefined' && map) map.setHeading(lastHeading);
                 }
@@ -697,7 +724,7 @@
                     const isMobileMap = window.innerWidth < 768;
                     map = new google.maps.Map(document.getElementById('map'), {
                         zoom: isMobileMap ? 17 : 18,
-                        tilt: isMobileMap ? 55 : 67, 
+                        tilt: isMobileMap ? 55 : 67,
                         heading: 0,
                         mapId: 'DEMO_MAP_ID', // Obligatorio para activar el motor WebGL 3D de Google Maps (edificios y perspectiva)
                         center: { lat: 0, lng: 0 },
@@ -761,7 +788,7 @@
 
                             // Borrar cualquier línea sólida previa del mapa 2D
                             if (customMapPolyline) customMapPolyline.setMap(null);
-                            
+
                             // Trazado detallado de GPS de la ruta
                             const path = response.routes[0].overview_path;
 
@@ -787,43 +814,43 @@
                             const arScene = document.querySelector('a-scene');
                             // Borrar ruta AR física anterior si la hubiera
                             document.querySelectorAll('.ar-path-node').forEach(el => el.remove());
-                            
+
                             // Transformar los puntos en una "LÍNEA VIRTUAL" de luz sólida superpuesta
                             // Generamos esferas de bajo coste poligonal muy juntas para formar un "tubo holográfico" suave y continuo
                             // que no se parte ni se deforma por culpa de los ejes de rotación cuando la cámara escanea la calle.
                             let renderedMeters = 0;
                             const maxDistRenderer = 800; // Pintar la línea sólo hasta 800 metros de distancia
-                            
+
                             for (let i = 0; i < path.length - 1; i++) {
                                 const p1 = path[i];
-                                const p2 = path[i+1];
-                                
+                                const p2 = path[i + 1];
+
                                 const dist = google.maps.geometry.spherical.computeDistanceBetween(p1, p2);
                                 if (dist < 0.5) continue;
-                                
-                                // Colocar esferas conectadas cada 0.8 metros
-                                const numSpheres = Math.max(1, Math.floor(dist / 0.8));
-                                
-                                for(let j = 0; j <= numSpheres; j++) {
+
+                                // Colocar esferas conectadas cada 4 metros (haciéndolas gigantescas)
+                                const numSpheres = Math.max(1, Math.floor(dist / 4.0));
+
+                                for (let j = 0; j <= numSpheres; j++) {
                                     const fraction = j / numSpheres;
                                     const point = google.maps.geometry.spherical.interpolate(p1, p2, fraction);
-                                    
+
                                     const node = document.createElement('a-entity');
                                     node.setAttribute('gps-entity-place', `latitude: ${point.lat()}; longitude: ${point.lng()};`);
-                                    
-                                    // Esfera de 1m diámetro optimizada
-                                    node.setAttribute('geometry', 'primitive: sphere; radius: 0.5; segments-width: 8; segments-height: 8');
-                                    
-                                    // Visible desde ambos lados por si el GPS spawnea la ruta justa encima de ti
-                                    node.setAttribute('material', 'color: #00f3ff; opacity: 0.6; transparent: true; emissive: #00f3ff; emissiveIntensity: 0.7; side: double');
-                                    
+
+                                    // Esfera AR GIGANTE de casi 7 metros de diámetro (radius: 3.5) para que no parezca un "pixel" en la lejanía real
+                                    node.setAttribute('geometry', 'primitive: sphere; radius: 3.5; segments-width: 8; segments-height: 8');
+
+                                    // Al ser muy grande, le bajamos la solidez (opacity: 0.4) para que sea un aura fantasma no cegadora
+                                    node.setAttribute('material', 'color: #00f3ff; opacity: 0.4; transparent: true; emissive: #00f3ff; emissiveIntensity: 0.8; side: double');
+
                                     // Flotando a -1 metro (a media altura, de las piernas a los pies para evitar hundirse bajo tierra físicamente)
                                     node.setAttribute('position', '0 -1.0 0');
-                                    
+
                                     node.classList.add('ar-path-node');
                                     arScene.appendChild(node);
                                 }
-                                
+
                                 renderedMeters += dist;
                                 if (renderedMeters > maxDistRenderer) break; // Límite de seguridad de carga WebGL
                             }
@@ -855,7 +882,7 @@
 
             function updateNavigation(coords) {
                 const currentLoc = new google.maps.LatLng(coords.latitude, coords.longitude);
-                
+
                 // Centrar dinámicamente el mapa pseudo-3D como un GPS de coche apuntando al coche
                 if (map) map.panTo(currentLoc);
 
