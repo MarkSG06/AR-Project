@@ -788,37 +788,42 @@
                             // Borrar ruta AR física anterior si la hubiera
                             document.querySelectorAll('.ar-path-node').forEach(el => el.remove());
                             
-                            // Transformar los puntos en una "LÍNEA VIRTUAL" que corre por encima del suelo
+                            // Transformar los puntos en una "LÍNEA VIRTUAL" de luz sólida superpuesta
+                            // Generamos esferas de bajo coste poligonal muy juntas para formar un "tubo holográfico" suave y continuo
+                            // que no se parte ni se deforma por culpa de los ejes de rotación cuando la cámara escanea la calle.
+                            let renderedMeters = 0;
+                            const maxDistRenderer = 800; // Pintar la línea sólo hasta 800 metros de distancia
+                            
                             for (let i = 0; i < path.length - 1; i++) {
                                 const p1 = path[i];
                                 const p2 = path[i+1];
                                 
-                                // ¿A qué distancia están estos dos recodos de la calle?
                                 const dist = google.maps.geometry.spherical.computeDistanceBetween(p1, p2);
-                                if (dist < 0.5) continue; // Si es muy corto lo saltamos para ahorrar recursos
+                                if (dist < 0.5) continue;
                                 
-                                // Calcular el punto medio exacto y el ángulo (heading) entre ambos
-                                const mid = google.maps.geometry.spherical.interpolate(p1, p2, 0.5);
-                                const heading = google.maps.geometry.spherical.computeHeading(p1, p2);
+                                // Calculamos colocar una esfera de luz cada 1.2 metros.
+                                const numSpheres = Math.max(1, Math.floor(dist / 1.2));
                                 
-                                const node = document.createElement('a-entity');
-                                node.setAttribute('gps-entity-place', `latitude: ${mid.lat()}; longitude: ${mid.lng()};`);
+                                for(let j = 0; j <= numSpheres; j++) {
+                                    const fraction = j / numSpheres;
+                                    const point = google.maps.geometry.spherical.interpolate(p1, p2, fraction);
+                                    
+                                    const node = document.createElement('a-entity');
+                                    node.setAttribute('gps-entity-place', `latitude: ${point.lat()}; longitude: ${point.lng()};`);
+                                    
+                                    // Esfera "low-poly" (8x8 caras) pero solapada, formando un único río de luz sólido de 1.6m de grosor.
+                                    node.setAttribute('geometry', 'primitive: sphere; radius: 0.8; segmentsWidth: 8; segmentsHeight: 8');
+                                    node.setAttribute('material', 'color: #00f3ff; opacity: 0.45; transparent: true; emissive: #00f3ff; emissiveIntensity: 0.5');
+                                    
+                                    // Flotando pegada al suelo
+                                    node.setAttribute('position', '0 -2.0 0');
+                                    
+                                    node.classList.add('ar-path-node');
+                                    arScene.appendChild(node);
+                                }
                                 
-                                // En móviles, reducimos la anchura de la caja (0.5m) para que en AR no cubra demasiado
-                                const lineWidth = window.innerWidth < 768 ? 0.5 : 1.2;
-                                node.setAttribute('geometry', `primitive: box; width: ${lineWidth}; height: 0.1; depth: ${dist + 2.5}`);
-                                
-                                // Textura cyber/neon con transparencia (pista azul sólida sin bordes)
-                                node.setAttribute('material', 'color: #00f3ff; opacity: 0.6; transparent: true; emissive: #00f3ff; emissiveIntensity: 0.8');
-                                
-                                // Altura media del móvil al suelo son 1.5 - 2 metros
-                                node.setAttribute('position', '0 -2.0 0');
-                                
-                                // Rotamos la línea. Si Norte = 0 grados, rotamos X grados para apuntar al siguiente nodo.
-                                node.setAttribute('rotation', `0 ${-heading} 0`);
-                                
-                                node.classList.add('ar-path-node');
-                                arScene.appendChild(node);
+                                renderedMeters += dist;
+                                if (renderedMeters > maxDistRenderer) break; // Límite de seguridad de carga WebGL
                             }
 
                             startTracking(route.end_location);
