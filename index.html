@@ -499,9 +499,11 @@
             const apiWarning = document.getElementById('api-warning');
 
             let map, directionsService, directionsRenderer;
+            let targetLoc;
             let currentWatchId = null;
             let currentRouteSteps = [];
             let currentStepIndex = 0;
+            let customMapPolyline = null; // Línea sólida personalizada para el mapa
 
             // --- Brujula (Compass) Logic ---
             const brujula = document.getElementById('brujula');
@@ -686,7 +688,7 @@
                 try {
                     directionsService = new google.maps.DirectionsService();
                     directionsRenderer = new google.maps.DirectionsRenderer({
-                        polylineOptions: { strokeColor: '#00f3ff', strokeWeight: 5 },
+                        suppressPolylines: true, // Forzamos ocultar la línea punteada fea por defecto de "modo caminante"
                         suppressMarkers: false
                     });
 
@@ -753,10 +755,25 @@
                     (response, status) => {
                         if (status === 'OK') {
                             directionsRenderer.setDirections(response);
-                            overlay.style.opacity = '0';
-                            setTimeout(() => overlay.style.display = 'none', 300);
+
+                            // Borrar cualquier línea sólida previa del mapa 2D
+                            if (customMapPolyline) customMapPolyline.setMap(null);
+                            
+                            // Trazado detallado de GPS de la ruta
+                            const path = response.routes[0].overview_path;
+
+                            // Dibujamos nuestra propia línea sólida 100% estilo coche (gruesa y contínua) sobre el mapa
+                            customMapPolyline = new google.maps.Polyline({
+                                path: path,
+                                strokeColor: '#00f3ff',
+                                strokeOpacity: 0.9,
+                                strokeWeight: 8,
+                                map: map
+                            });
 
                             statusEl.innerText = 'SYS: NAVIGATING';
+                            overlay.style.opacity = '0';
+                            setTimeout(() => overlay.style.display = 'none', 300);
 
                             const route = response.routes[0].legs[0];
                             currentRouteSteps = route.steps;
@@ -766,9 +783,6 @@
                             const arScene = document.querySelector('a-scene');
                             // Borrar ruta AR física anterior si la hubiera
                             document.querySelectorAll('.ar-path-node').forEach(el => el.remove());
-                            
-                            // Trazado detallado de GPS de la ruta
-                            const path = response.routes[0].overview_path;
                             
                             // Transformar los puntos en una "LÍNEA VIRTUAL" que corre por encima del suelo
                             for (let i = 0; i < path.length - 1; i++) {
@@ -786,11 +800,11 @@
                                 const node = document.createElement('a-entity');
                                 node.setAttribute('gps-entity-place', `latitude: ${mid.lat()}; longitude: ${mid.lng()};`);
                                 
-                                // Una caja súper aplastada (0.1m height) y estirada hasta la longitud del trayecto (depth)
-                                node.setAttribute('geometry', `primitive: box; width: 0.8; height: 0.1; depth: ${dist}`);
+                                // Una caja súper aplastada (0.1m height) y estirada +2 metros para solapar y crear "una sola línea" fundida
+                                node.setAttribute('geometry', `primitive: box; width: 1.2; height: 0.1; depth: ${dist + 2.5}`);
                                 
-                                // Textura cyber/neon con transparencia (pista azul)
-                                node.setAttribute('material', 'color: #00f3ff; opacity: 0.6; transparent: true; emissive: #00f3ff; emissiveIntensity: 0.4');
+                                // Textura cyber/neon con transparencia (pista azul sólida sin bordes)
+                                node.setAttribute('material', 'color: #00f3ff; opacity: 0.6; transparent: true; emissive: #00f3ff; emissiveIntensity: 0.8');
                                 
                                 // Altura media del móvil al suelo son 1.5 - 2 metros
                                 node.setAttribute('position', '0 -2.0 0');
